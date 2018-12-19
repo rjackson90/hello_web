@@ -1,0 +1,8 @@
+[package]
+name = "hello_web"
+version = "0.1.0"
+authors = ["Richard Jackson <richard.jackson@55places.com>"]
+edition = "2018"
+
+[dependencies]
+actix-web = "0.7"
