@@ -1,8 +1,12 @@
-FROM rust:1
-WORKDIR /src
+FROM rust:1 as build
+WORKDIR /usr/src
 
 COPY . .
-RUN cargo build --release 
+RUN cargo build --release
 
-CMD ["target/release/hello_web"]
+FROM ubuntu:latest as run
+WORKDIR /usr/bin
+COPY --from=build /usr/src/target/release/hello_web .
+
+CMD ["hello_web"]
 
