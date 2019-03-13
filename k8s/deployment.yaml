@@ -1,0 +1,156 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hello-web-deployment
+  labels:
+    app: hello_web
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hello_web
+  template:
+    metadata:
+      labels:
+        app: hello_web
+      annotations:
+        linkerd.io/inject: enabled
+    spec:
+      containers:
+      - name: app
+        image: quay.io/richjackson/hello_web:latest
+        ports:
+        - containerPort: 8000
+        env:
+        - name: RUST_LOG
+          value: info
+      - name: nginx
+        image: nginx:alpine
+        ports:
+        - containerPort: 80
+        volumeMounts:
+        - name: config-vol
+          mountPath: /etc/nginx
+      volumes:
+        - name: config-vol
+          configMap:
+            name: hello-web-nginx-config
+            items:
+            - key: nginx.conf
+              path: nginx.conf
+            - key: app.conf
+              path: conf.d/app.conf
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hello-web
+spec:
+  selector:
+    app: hello_web
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 80
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hello-web-nginx-config
+data:
+  nginx.conf: |
+    worker_processes 4;
+    
+    events {
+      worker_connections 2048;
+      multi_accept on;
+      use epoll;
+    }
+    
+    http {
+      server_tokens off;
+      sendfile off;
+      tcp_nopush on;
+      tcp_nodelay on;
+      keepalive_timeout 15;
+      types_hash_max_size 2048;
+      client_max_body_size 20M;
+      default_type application/octet-stream;
+    
+      log_format perf_json escape=json 
+          '{'
+            '"time":"$time_local",'
+            '"client":"$remote_addr",'
+            '"scheme":"$scheme",'
+            '"method":"$request_method",'
+            '"request_uri":"$request_uri",'
+            '"request_length":"$request_length",'
+            '"status":"$status",'
+            '"bytes_sent":"$bytes_sent",'
+            '"body_bytes_sent":"$body_bytes_sent",'
+            '"referer":"$http_referer",'
+            '"user_agent":"$http_user_agent",'
+            '"upstream_addr":"$upstream_addr",'
+            '"upstream_status":"$upstream_status",'
+            '"request_time":"$request_time",'
+            '"upstream_response_time":"$upstream_response_time",'
+            '"upstream_connect_time":"$upstream_connect_time",'
+            '"upstream_header_time":"$upstream_header_time",'
+            '"upstream_bytes_received":"$upstream_bytes_received"'
+          '}';
+      
+      access_log /dev/stdout perf_json;
+      error_log /dev/stderr;  
+    
+      gzip on;
+      gzip_disable "msie6";
+    
+      include /etc/nginx/conf.d/*.conf;
+      open_file_cache off;
+      charset UTF-8;
+    
+      map $scheme $fastcgi_https {
+        default off;
+        https on;
+      }
+    }
+
+  app.conf: |
+    upstream hello {
+      server 127.0.0.1:8000;
+    }
+
+    server {
+      listen 80;
+      
+      server_name www.hello-web.devops.svc.cluster.local hello-web.devops.svc.cluster.local hello-web.devops hello-web;
+      root /var/www/html;
+      
+      location /healthz/nginx {
+        access_log off;
+        return 200 "Ok";
+      }
+
+      location /healthz/app {
+        access_log off;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_pass http://hello/healthz;
+      }
+
+      location / {
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_pass http://hello/;
+      }
+    }
+
+
+
+
+
+
+
+

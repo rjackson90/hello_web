@@ -1,0 +1,34 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  creationTimestamp: null
+  name: traffic-bot
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      creationTimestamp: null
+    spec:
+      containers:
+      - command:
+        - wrk
+        - --connections
+        - "8"
+        - --threads
+        - "1"
+        - --latency
+        - --duration
+        - 5m
+        - http://hello-web/
+        image: williamyeh/wrk
+        name: werkzeug
+        resources:
+          limits:
+            cpu: 1200m
+            memory: 16Mi
+          requests:
+            cpu: 500m
+            memory: 16Mi
+      restartPolicy: Never
+status: {}
+---
