@@ -16,6 +16,12 @@ fn healthz(_req: &HttpRequest) -> impl Responder {
     "Ok"
 }
 
+fn lots_of_logs(_req: &HttpRequest) -> impl Responder {
+    info!("Writing a log message");
+    "Ok"
+
+}
+
 fn main() {
     pretty_env_logger::init();
 
@@ -23,6 +29,7 @@ fn main() {
     server::new(|| {
         App::new()
             .resource("/healthz", |r| r.f(healthz))
+            .resource("/logs", |r| r.f(lots_of_logs))
             .resource("/", |r| r.f(greet))
             .resource("/{name}", |r| r.f(greet))
     })
